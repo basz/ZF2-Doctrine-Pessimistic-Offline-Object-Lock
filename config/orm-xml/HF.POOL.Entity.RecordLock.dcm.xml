@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping" xsi="http://www.w3.org/2001/XMLSchema-instance" schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+  <entity name="HF\POOL\Entity\RecordLock" table="recordlock">
+    <id name="object_type" type="string" length="64"/>
+    <id name="object_key" type="string" length="64"/>
+    <field name="user_ident" type="string" length="64" nullable="false"/>
+    <field name="lock_ttl" type="integer" nullable="true"/>
+    <field name="lock_obtained" type="datetime" nullable="false"/>
+    <field name="reason" type="string" length="256" nullable="true"/>
+    <unique-constraints>
+      <unique-constraint name="lockindex" columns="object_type,object_key,user_ident"/>
+    </unique-constraints>
+    <options>
+      <option name="engine">Memory</option>
+    </options>
+  </entity>
+</doctrine-mapping>

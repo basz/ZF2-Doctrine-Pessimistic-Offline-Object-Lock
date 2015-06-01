@@ -1,0 +1,31 @@
+{
+  "name": "plhw/hf-pessimistic-offline-object-lock",
+  "description": "A ZF2 Module that provides pessimistic offline object locking capabilities for Doctrine.",
+  "require": {
+    "php": ">=5.4",
+    "zendframework/zend-modulemanager": "~2.3",
+    "doctrine/doctrine-orm-module": "*",
+    "ocramius/proxy-manager": "^2.0@dev"
+  },
+  "minimum-stability" : "dev",
+  "require-dev": {
+    "zendframework/zendframework": "~2.3",
+    "phpunit/phpunit": ">=3.7",
+    "doctrine/data-fixtures": "~1.0@dev"
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "1.0.x-dev"
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "HF\\POOL\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "HFTest\\POOL\\": "test/"
+    }
+  }
+}

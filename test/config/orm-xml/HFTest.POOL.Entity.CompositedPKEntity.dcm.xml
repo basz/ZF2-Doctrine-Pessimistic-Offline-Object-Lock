@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping" xsi="http://www.w3.org/2001/XMLSchema-instance" schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+  <entity name="HFTest\POOL\Entity\CompositedPKEntity">
+    <id name="first_pk" type="integer"/>
+    <id name="second_pk" type="integer"/>
+    <field name="name" type="string" nullable="true"/>
+    <indexes>
+      <index name="PKIndex" columns="first_pk,second_pk"/>
+    </indexes>
+  </entity>
+</doctrine-mapping>

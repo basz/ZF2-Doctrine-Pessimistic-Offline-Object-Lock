@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<skipper version="3.2.1.1226" name="HF-POOL" mvc="Zend Framework" orm="Doctrine2" uuid="014db962-2520-4840-85a1-d8aef3559eda">
+  <module name="\Pessimitic Offline Object Lock" local-name="Pessimitic Offline Object Lock" namespace="\HF\POOL" local-namespace="HF\POOL" description="Offline locking of records comes in handy where you need to make sure that a time-consuming task on a record or many records, which is spread over several page requests can't be interfered by other users.&#10;&#10;Provides record locking for any object managed by an object manager.&#10;&#10;- centralized table instead of adding fields to all tables&#10;- find all locks that are made by a user without having to scan all tables" export-format="Doctrine2Xml" export-path="../config/orm-xml" uuid="4d39f403-cb6c-4c29-b241-5da28a693730">
+    <entity name="\HF\POOL\Entity\RecordLock" local-name="RecordLock" namespace="\HF\POOL\Entity" local-namespace="Entity" uuid="85055515-6bb3-4987-ad25-88bafceb0413">
+      <field name="object_type" description="The name of the table or entity that has a lock" type="string" size="64" required="true" primary="true" uuid="ab81a0f1-0f76-4cd1-89de-d166dc525f76"/>
+      <field name="object_key" description="The primary key of the record that has a lo " type="string" size="64" required="true" primary="true" uuid="303d2d5a-b647-495e-9686-2814502e4b33"/>
+      <field name="user_ident" description="The user (or system) that has created the lock" type="string" size="64" required="true" uuid="dabb4966-3dd0-4327-9f2e-651fd3c63372"/>
+      <field name="lock_ttl" description="The timestamp until the lock is valid" type="integer" uuid="1773d672-11b2-4d4d-9431-75e75211711a"/>
+      <field name="lock_obtained" description="The timestamp when the lock was obtained" type="datetime" required="true" uuid="f99e3896-91ce-47d9-8661-a6406e34a99e"/>
+      <field name="reason" description="Why does the lock exist (worker, user editing, etc)" type="string" size="256" uuid="90b8a866-d4cb-4f9f-bb6f-fd9c9869169c"/>
+      <index name="lockindex" unique="true">
+        <index-field name="object_type"/>
+        <index-field name="object_key"/>
+        <index-field name="user_ident"/>
+      </index>
+      <orm-attributes>
+        <attribute name="table">recordlock</attribute>
+        <attribute name="options">
+          <attribute name="engine">Memory</attribute>
+        </attribute>
+      </orm-attributes>
+    </entity>
+  </module>
+  <module name="\Pessimitic Offline Object Lock - Testing" local-name="Pessimitic Offline Object Lock - Testing" namespace="\HFTest\POOL" local-namespace="HFTest\POOL" export-format="Doctrine2Xml" export-path="../test/config/orm-xml" uuid="761cb0ac-d85b-483c-b7c6-d10d3c1be3a1">
+    <entity name="\HFTest\POOL\Entity\SinglePKEntity" local-name="SinglePKEntity" namespace="\HFTest\POOL\Entity" local-namespace="Entity" uuid="89fded75-150b-4ec5-ba89-402783c9b3ae">
+      <field name="id" type="integer" required="true" unique="true" primary="true" auto-increment="true" uuid="7ad64747-fa04-4cea-be8d-77ca401b2bb2"/>
+      <field name="name" type="string" uuid="906b8878-726a-47ec-9355-5e8b8427e805"/>
+      <orm-attributes>
+        <attribute name="table">some_foo_table</attribute>
+      </orm-attributes>
+    </entity>
+    <entity name="\HFTest\POOL\Entity\CompositedPKEntity" local-name="CompositedPKEntity" namespace="\HFTest\POOL\Entity" local-namespace="Entity" uuid="618b25d7-9536-4ae2-8d16-9fa1271c036e">
+      <field name="first_pk" type="integer" required="true" primary="true" uuid="ba831fa7-f086-4575-a858-24b767d6bfa8"/>
+      <field name="second_pk" type="integer" required="true" primary="true" uuid="f6c9944a-f568-4949-91e7-eb40e2d9812d"/>
+      <field name="name" type="string" uuid="4fa61ffb-3e26-43de-a666-fc69b66377c8"/>
+      <index name="PKIndex">
+        <index-field name="first_pk"/>
+        <index-field name="second_pk"/>
+      </index>
+    </entity>
+  </module>
+  <visual-data>
+    <project uuid="014db962-2520-4840-85a1-d8aef3559eda" size-x="197" size-x2="788" size-y="231" size-y2="938"/>
+    <module uuid="4d39f403-cb6c-4c29-b241-5da28a693730" bg-color="#FEEFE3" position-x="-121" position-y="77" size-x="52" size-x2="575" size-y="247" size-y2="-37"/>
+    <entity uuid="618b25d7-9536-4ae2-8d16-9fa1271c036e" bg-color="#FFFFFF" hdr-color="#D2D2D2" position-x="115" position-y="26" size-x="0" size-x2="125" size-y="0" size-y2="59"/>
+    <module uuid="761cb0ac-d85b-483c-b7c6-d10d3c1be3a1" bg-color="#FEEFE3" position-x="-172" position-y="92" size-x="0" size-x2="641" size-y="0" size-y2="127"/>
+    <entity uuid="85055515-6bb3-4987-ad25-88bafceb0413" bg-color="#FFFFFF" hdr-color="#D2D2D2" position-x="-39" position-y="-217" size-x="0" size-x2="116" size-y="0" size-y2="87"/>
+    <entity uuid="89fded75-150b-4ec5-ba89-402783c9b3ae" bg-color="#FFFFFF" hdr-color="#D2D2D2" position-x="9" position-y="25" size-x="0" size-x2="100" size-y="0" size-y2="45"/>
+  </visual-data>
+</skipper>

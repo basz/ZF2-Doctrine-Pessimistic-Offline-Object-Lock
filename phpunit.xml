@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit bootstrap="./test/Bootstrap.php">
+
+    <testsuites>
+        <testsuite name="HFPOOL">
+            <directory>test</directory>
+        </testsuite>
+    </testsuites>
+
+</phpunit>
