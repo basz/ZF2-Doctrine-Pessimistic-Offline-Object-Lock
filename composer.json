@@ -7,7 +7,6 @@
     "doctrine/doctrine-orm-module": "*",
     "ocramius/proxy-manager": "~1.0"
   },
-  "minimum-stability" : "dev",
   "require-dev": {
     "zendframework/zendframework": "~2.3",
     "phpunit/phpunit": ">=3.7",
