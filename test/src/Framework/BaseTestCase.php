@@ -16,17 +16,10 @@ class BaseTestCase extends \PHPUnit_Framework_TestCase
      */
     protected $objectManager;
 
-    /**
-     * @var ObjectLockManager
-     */
-    protected $objectLockManager;
-
     public function setUp()
     {
         $command = new StringInput('orm:schema-tool:create');
         Bootstrap::getServiceManager()->get('doctrine.cli')->run($command, new NullOutput());
-
-        $this->objectLockManager = Bootstrap::getServiceManager()->get('hf_pool.manager');
     }
 
     public function tearDown()
@@ -37,7 +30,7 @@ class BaseTestCase extends \PHPUnit_Framework_TestCase
         $this->getObjectManager()->clear();
     }
 
-    public function setupFixtures($dataSet)
+    public function loadFixtures($dataSet)
     {
         foreach ($dataSet as $dataRow) {
             $this->getObjectManager()->getConnection()->executeUpdate(

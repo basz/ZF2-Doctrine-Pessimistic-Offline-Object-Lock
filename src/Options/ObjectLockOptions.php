@@ -1,6 +1,6 @@
 <?php
 
-namespace HF\POOL\Option;
+namespace HF\POOL\Options;
 
 use Zend\Stdlib\AbstractOptions;
 

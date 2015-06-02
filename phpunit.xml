@@ -3,7 +3,7 @@
 
     <testsuites>
         <testsuite name="HF POOL Test Suite">
-            <directory>test</directory>
+            <directory>test/src</directory>
         </testsuite>
     </testsuites>
 

@@ -2,7 +2,7 @@
 
 namespace HF\POOL\Factory;
 
-use HF\POOL\Option\ObjectLockOptions;
+use HF\POOL\Options\ObjectLockOptions;
 use Zend\ServiceManager\FactoryInterface;
 use Zend\ServiceManager\ServiceLocatorInterface;
 

@@ -3,12 +3,16 @@
 return [
     'hf_pool'         => [
         /**
-         * Time to life for acquired lock from now in seconds, defaults to 15 minutes
+         * Time to life for acquired lock from now in seconds
+         *
+         * Defaults to 15 minutes
          */
         // 'ttl'                 => 900,
 
         /**
-         * Doctrine connection the manager should use
+         * Doctrine connection the pool manager should use
+         *
+         * Defaults to 'doctrine.connection.orm_default'
          */
         // 'doctrine_connection' => 'doctrine.connection.orm_default',
     ],

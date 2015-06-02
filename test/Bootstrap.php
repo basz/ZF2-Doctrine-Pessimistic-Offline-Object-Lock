@@ -42,6 +42,9 @@ class Bootstrap
         chdir($rootPath);
     }
 
+    /**
+     * @return ServiceManager
+     */
     public static function getServiceManager()
     {
         return static::$serviceManager;

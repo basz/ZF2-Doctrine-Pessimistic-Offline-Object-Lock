@@ -2,33 +2,23 @@
 
 namespace HFTest\POOL\Service;
 
+use HF\POOL\Service\DoctrinePOOLManager;
+use HFTest\POOL\Bootstrap;
 use HFTest\POOL\Framework\BaseTestCase;
 
-class ObjectLockManagerTest extends BaseTestCase
+class DoctrinePOOLManagerDecoratorTest extends BaseTestCase
 {
+
+    /**
+     * @var DoctrinePOOLManager
+     */
+    protected $poolManager;
 
     public function setUp()
     {
         parent::setUp();
 
-        $entity = new \HFTest\POOL\Entity\SInglePKEntity();
-        $entity->setName('foo');
-        $this->getObjectManager()->persist($entity);
-        $entity = new \HFTest\POOL\Entity\SInglePKEntity();
-        $entity->setName('bar');
-        $this->getObjectManager()->persist($entity);
-
-        $entity = new \HFTest\POOL\Entity\CompositedPKEntity(1, 2);
-        $this->getObjectManager()->persist($entity);
-        $entity = new \HFTest\POOL\Entity\CompositedPKEntity(3, '4');
-        $this->getObjectManager()->persist($entity);
-
-        $this->getObjectManager()->flush();
-    }
-
-    public function tearDown()
-    {
-        parent::tearDown();
+        $this->poolManager = Bootstrap::getServiceManager()->get('hf_pool.doctrine.manager');
     }
 
     /**
@@ -36,7 +26,7 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testAcquiringALock()
     {
-        $success = $this->objectLockManager->acquireLock('object', 'pk', 'me');
+        $success = $this->poolManager->acquireLock('object', 'pk', 'me');
         $this->assertTrue($success);
 
         $locks = $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll();
@@ -58,9 +48,9 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testAcquiringLockOnAlreadyAcquiredLock()
     {
-        $acquired = $this->objectLockManager->acquireLock('object', 'pk', 'me');
+        $acquired = $this->poolManager->acquireLock('object', 'pk', 'me');
         $this->assertTrue($acquired);
-        $acquired = $this->objectLockManager->acquireLock('object', 'pk', 'me');
+        $acquired = $this->poolManager->acquireLock('object', 'pk', 'me');
         $this->assertTrue($acquired);
 
         $locks = $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll();
@@ -84,7 +74,7 @@ class ObjectLockManagerTest extends BaseTestCase
     public function testReacquiringALockWithNewTtlOrReason()
     {
         // acquire lock with a ttl and reason
-        $this->objectLockManager->acquireLock('object', 'pk', 'me', 10, 'because');
+        $this->poolManager->acquireLock('object', 'pk', 'me', 10, 'because');
 
         $locks = $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll();
 
@@ -95,7 +85,7 @@ class ObjectLockManagerTest extends BaseTestCase
         $this->assertEquals('because', $lock->getReason());
 
         // re-acquires lock without optionals
-        $acquired = $this->objectLockManager->acquireLock('object', 'pk', 'me');
+        $acquired = $this->poolManager->acquireLock('object', 'pk', 'me');
         $this->assertTrue($acquired);
 
         $this->getObjectManager()->clear();
@@ -113,9 +103,9 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testAcquiringLockOnAlreadyAcquiredLockByDifferentUserIdent()
     {
-        $acquired = $this->objectLockManager->acquireLock('object', 'pk', 'me');
+        $acquired = $this->poolManager->acquireLock('object', 'pk', 'me');
         $this->assertTrue($acquired);
-        $acquired = $this->objectLockManager->acquireLock('object', 'pk', 'you');
+        $acquired = $this->poolManager->acquireLock('object', 'pk', 'you');
         $this->assertFalse($acquired);
     }
 
@@ -124,14 +114,14 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testRelinquishLock()
     {
-        $this->setupFixtures([
+        $this->loadFixtures([
             ['object', 'key1', 'me', time(), null, null], // valid
             ['object', 'key2', 'me', time() - 3600, null, null], // expired
         ]);
 
-        $relinquished = $this->objectLockManager->relinquishLock('object', 'key1');
+        $relinquished = $this->poolManager->relinquishLock('object', 'key1');
         $this->assertTrue($relinquished);
-        $relinquished = $this->objectLockManager->relinquishLock('object', 'key2');
+        $relinquished = $this->poolManager->relinquishLock('object', 'key2');
         $this->assertFalse($relinquished);
         $this->assertCount(1,
             $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll());
@@ -142,16 +132,16 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testRelinquishNonExistentLock()
     {
-        $relinquished = $this->objectLockManager->relinquishLock('object', 'key');
+        $relinquished = $this->poolManager->relinquishLock('object', 'key');
         $this->assertFalse($relinquished);
     }
 
     /**
      * Test getLockInfo
      */
-    public function testGetUserIdentOfLock()
+    public function testGetLockInfo()
     {
-        $this->setupFixtures([
+        $this->loadFixtures([
             ['object', 'key1', 'me1', time() - 10, 9, null], // expired
             ['object', 'key2', 'me2', time() - 10, 10, null], // valid
             ['object', 'key3', 'me3', time() - 10, 11, null], // valid
@@ -160,25 +150,48 @@ class ObjectLockManagerTest extends BaseTestCase
             ['object', 'key6', 'me6', time() - 36, null, null], // valid
         ]);
 
-        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key1'));
-        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key4'));
+        $this->assertFalse($this->poolManager->getLockInfo('object', 'key1'));
+        $this->assertFalse($this->poolManager->getLockInfo('object', 'key4'));
 
-        $this->assertEquals(['user_ident' => 'me2', 'ttl' => 0, 'reason' => null],
-            $this->objectLockManager->getLockInfo('object', 'key2'));
-        $this->assertEquals(['user_ident' => 'me3', 'ttl' => 1, 'reason' => null],
-            $this->objectLockManager->getLockInfo('object', 'key3'));
-        $this->assertEquals(['user_ident' => 'me5', 'ttl' => 540, 'reason' => null],
-            $this->objectLockManager->getLockInfo('object', 'key5'));
-        $this->assertEquals(['user_ident' => 'me6', 'ttl' => 864, 'reason' => null],
-            $this->objectLockManager->getLockInfo('object', 'key6'));
+        $this->assertEquals([
+            'userIdent'  => 'me2',
+            'ttl'        => 0,
+            'reason'     => null,
+            'objectType' => 'object',
+            'objectKey'  => 'key2'
+        ], $this->poolManager->getLockInfo('object', 'key2'));
+
+        $this->assertEquals([
+            'userIdent'  => 'me3',
+            'ttl'        => 1,
+            'reason'     => null,
+            'objectType' => 'object',
+            'objectKey'  => 'key3'
+        ], $this->poolManager->getLockInfo('object', 'key3'));
+
+        $this->assertEquals([
+            'userIdent'  => 'me5',
+            'ttl'        => 540,
+            'reason'     => null,
+            'objectType' => 'object',
+            'objectKey'  => 'key5'
+        ], $this->poolManager->getLockInfo('object', 'key5'));
+
+        $this->assertEquals([
+            'userIdent'  => 'me6',
+            'ttl'        => 864,
+            'reason'     => null,
+            'objectType' => 'object',
+            'objectKey'  => 'key6'
+        ], $this->poolManager->getLockInfo('object', 'key6'));
     }
 
     /**
      * Test retrieving the user ident of a particular object lock
      */
-    public function testGetUserIdentOfExpiredLockReturnsFalse()
+    public function testGetLockInfoOfExpiredLockReturnsFalse()
     {
-        $this->setupFixtures([
+        $this->loadFixtures([
             ['object', 'key1', 'me1', time() - 10, 9, null], // expired
             ['object', 'key2', 'me2', time() - 10, 10, null], // valid
             ['object', 'key3', 'me3', time() - 10, 11, null], // valid
@@ -187,15 +200,15 @@ class ObjectLockManagerTest extends BaseTestCase
             ['object', 'key6', 'me3', time() - 36, null, null], // valid
         ]);
 
-        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key1'));
-        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key2'));
-        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key3'));
-        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key4'));
-        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key5'));
-        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key6'));
+        $this->assertFalse($this->poolManager->getLockInfo('object', 'key1'));
+        $this->assertNotFalse($this->poolManager->getLockInfo('object', 'key2'));
+        $this->assertNotFalse($this->poolManager->getLockInfo('object', 'key3'));
+        $this->assertFalse($this->poolManager->getLockInfo('object', 'key4'));
+        $this->assertNotFalse($this->poolManager->getLockInfo('object', 'key5'));
+        $this->assertNotFalse($this->poolManager->getLockInfo('object', 'key6'));
     }
 
-    public function dpRelinquishAgedLocks()
+    public function dpRelinquishExpiredLocks()
     {
         // test set array of arguments passed to the method being tested and then array of object
         // that we expect to be removed from the db
@@ -218,11 +231,11 @@ class ObjectLockManagerTest extends BaseTestCase
     }
 
     /**
-     * @dataProvider dpRelinquishAgedLocks
+     * @dataProvider dpRelinquishExpiredLocks
      */
-    public function testRelinquishAgedLocks($arguments, $locksRemoved)
+    public function testRelinquishExpiredLocks($arguments, $locksRemoved)
     {
-        $this->setupFixtures([
+        $this->loadFixtures([
             ['a', '1', 'him', '20 minutes ago', null, null],
             ['b', '2', 'her', '15 minutes ago', null, null],
             ['a', '3', 'she', '10 minutes ago', null, null],
@@ -235,7 +248,7 @@ class ObjectLockManagerTest extends BaseTestCase
             ['b', '10', 'him', '0 minutes ago', 60 * 10, null],
         ]);
 
-        call_user_func_array([$this->objectLockManager, 'relinquishLocks'], $arguments);
+        call_user_func_array([$this->poolManager, 'relinquishExpiredLocks'], $arguments);
 
         $assertAllLocksAreRemoved = function () use ($locksRemoved) {
             $locks = $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll();
