@@ -2,7 +2,6 @@
 
 namespace HFTest\POOL\Service;
 
-use HF\POOL\Entity\RecordLock;
 use HFTest\POOL\Framework\BaseTestCase;
 
 class ObjectLockManagerTest extends BaseTestCase
@@ -105,8 +104,6 @@ class ObjectLockManagerTest extends BaseTestCase
         /** @var \HF\POOL\Entity\RecordLock $lock */
         $lock = array_pop($locks);
 
-//        $this->assertGreaterThanOrEqual(10, $lock->getLockUntil()->format('U') - time());
-//        $this->assertEquals('some-reason', $lock->getReason());
         $this->assertEquals(10, $lock->getLockTtl());
         $this->assertEquals('because', $lock->getReason());
     }
@@ -127,13 +124,16 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testRelinquishLock()
     {
-        // first acquire a lock
-        $acquired = $this->objectLockManager->acquireLock('object', 'key', 'me');
-        $this->assertTrue($acquired);
+        $this->setupFixtures([
+            ['object', 'key1', 'me', time(), null, null], // valid
+            ['object', 'key2', 'me', time() - 3600, null, null], // expired
+        ]);
 
-        $relinquished = $this->objectLockManager->relinquishLock('object', 'key');
+        $relinquished = $this->objectLockManager->relinquishLock('object', 'key1');
         $this->assertTrue($relinquished);
-        $this->assertCount(0,
+        $relinquished = $this->objectLockManager->relinquishLock('object', 'key2');
+        $this->assertFalse($relinquished);
+        $this->assertCount(1,
             $this->getObjectManager()->getRepository(\HF\POOL\Entity\RecordLock::class)->findAll());
     }
 
@@ -147,17 +147,30 @@ class ObjectLockManagerTest extends BaseTestCase
     }
 
     /**
-     * Test retrieving the user ident of a particular object lock
+     * Test getLockInfo
      */
     public function testGetUserIdentOfLock()
     {
-        $this->assertFalse($this->objectLockManager->getUserIdent('object', 'key'));
+        $this->setupFixtures([
+            ['object', 'key1', 'me1', time() - 10, 9, null], // expired
+            ['object', 'key2', 'me2', time() - 10, 10, null], // valid
+            ['object', 'key3', 'me3', time() - 10, 11, null], // valid
+            ['object', 'key4', 'me4', time() - 3600, null, null], // expired
+            ['object', 'key5', 'me5', time() - 360, null, null], // valid
+            ['object', 'key6', 'me6', time() - 36, null, null], // valid
+        ]);
 
-        // first acquire a lock
-        $acquired = $this->objectLockManager->acquireLock('object', 'key', 'me');
-        $this->assertTrue($acquired);
+        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key1'));
+        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key4'));
 
-        $this->assertEquals('me', $this->objectLockManager->getUserIdent('object', 'key'));
+        $this->assertEquals(['user_ident' => 'me2', 'ttl' => 0, 'reason' => null],
+            $this->objectLockManager->getLockInfo('object', 'key2'));
+        $this->assertEquals(['user_ident' => 'me3', 'ttl' => 1, 'reason' => null],
+            $this->objectLockManager->getLockInfo('object', 'key3'));
+        $this->assertEquals(['user_ident' => 'me5', 'ttl' => 540, 'reason' => null],
+            $this->objectLockManager->getLockInfo('object', 'key5'));
+        $this->assertEquals(['user_ident' => 'me6', 'ttl' => 864, 'reason' => null],
+            $this->objectLockManager->getLockInfo('object', 'key6'));
     }
 
     /**
@@ -165,50 +178,21 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testGetUserIdentOfExpiredLockReturnsFalse()
     {
-        $this->assertFalse($this->objectLockManager->getUserIdent('object', 'key'));
+        $this->setupFixtures([
+            ['object', 'key1', 'me1', time() - 10, 9, null], // expired
+            ['object', 'key2', 'me2', time() - 10, 10, null], // valid
+            ['object', 'key3', 'me3', time() - 10, 11, null], // valid
+            ['object', 'key4', 'me1', time() - 3600, null, null], // expired
+            ['object', 'key5', 'me2', time() - 360, null, null], // valid
+            ['object', 'key6', 'me3', time() - 36, null, null], // valid
+        ]);
 
-        // first acquire a lock
-        $acquired = $this->objectLockManager->acquireLock('object', 'key', 'me', -100); // note expired allready!
-        $this->assertTrue($acquired);
-
-        $this->assertFalse($this->objectLockManager->getUserIdent('object', 'key'));
-    }
-
-    /**
-     * add fixtures
-     */
-    public function setupRelinquishAgedLocks()
-    {
-        $createLockObject = function ($objectTypeKey, $userIdent, $lockObtained, $lockTtl) {
-            list($objectType, $objectKey) = explode(':', $objectTypeKey);
-            $lock = new RecordLock($objectType, $objectKey);
-            $lock->setUserIdent($userIdent);
-            $lock->setLockObtained(new \DateTime($lockObtained));
-            $lock->setLockTtl($lockTtl);
-
-            return $lock;
-        };
-
-        $fixtureData = [
-            ['a:1', 'him', '20 minutes ago', null],
-            ['b:2', 'her', '15 minutes ago', null],
-            ['a:3', 'she', '10 minutes ago', null],
-            ['b:4', 'him', '5 minutes ago', null],
-            ['a:5', 'her', '0 minutes ago', null],
-            ['b:6', 'she', '20 minutes ago', 60*10],
-            ['a:7', 'him', '15 minutes ago', 60*10],
-            ['b:8', 'her', '10 minutes ago', 60*10],
-            ['a:9', 'she', '5 minutes ago', 60*10],
-            ['b:10', 'him', '0 minutes ago', 60*10],
-        ];
-
-        foreach ($fixtureData as $fData) {
-            $lock = call_user_func_array($createLockObject, $fData);
-            $this->getObjectManager()->persist($lock);
-        }
-
-        $this->getObjectManager()->flush();
-        $this->getObjectManager()->clear();
+        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key1'));
+        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key2'));
+        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key3'));
+        $this->assertFalse($this->objectLockManager->getLockInfo('object', 'key4'));
+        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key5'));
+        $this->assertNotFalse($this->objectLockManager->getLockInfo('object', 'key6'));
     }
 
     public function dpRelinquishAgedLocks()
@@ -219,20 +203,17 @@ class ObjectLockManagerTest extends BaseTestCase
 
         return [
             [[null, null, null], ['a:1', 'b:2', 'b:6', 'a:7']],
-            [[600, null, null],  ['a:1', 'b:2', 'a:3', 'b:6', 'a:7', 'b:8']],
-            [[0, null, null],    ['a:1', 'b:2', 'a:3', 'b:4', 'a:5', 'b:6', 'a:7', 'b:8', 'a:9', 'b:10']],
-
+            [[600, null, null], ['a:1', 'b:2', 'a:3', 'b:6', 'a:7', 'b:8']],
+            [[0, null, null], ['a:1', 'b:2', 'a:3', 'b:4', 'a:5', 'b:6', 'a:7', 'b:8', 'a:9', 'b:10']],
             [[null, 'a', null], ['a:1', 'a:7']],
-            [[600, 'b', null],  ['b:2', 'b:6', 'b:8']],
-            [[0, 'a', null],    ['a:1', 'a:3', 'a:5', 'a:7', 'a:9']],
-
-            [[0, null, 'him'],    ['a:1', 'b:4', 'b:10']],
-            [[0, null, 'her'],    ['b:2', 'a:5', 'b:8']],
-            [[0, null, 'she'],    ['a:3', 'b:6', 'a:9']],
-
-            [[0, 'a', 'him'],    ['a:1']],
-            [[0, 'a', 'her'],    ['a:5']],
-            [[0, 'a', 'she'],    ['a:3', 'a:9']],
+            [[600, 'b', null], ['b:2', 'b:6', 'b:8']],
+            [[0, 'a', null], ['a:1', 'a:3', 'a:5', 'a:7', 'a:9']],
+            [[0, null, 'him'], ['a:1', 'b:4', 'b:10']],
+            [[0, null, 'her'], ['b:2', 'a:5', 'b:8']],
+            [[0, null, 'she'], ['a:3', 'b:6', 'a:9']],
+            [[0, 'a', 'him'], ['a:1']],
+            [[0, 'a', 'her'], ['a:5']],
+            [[0, 'a', 'she'], ['a:3', 'a:9']],
         ];
     }
 
@@ -241,8 +222,18 @@ class ObjectLockManagerTest extends BaseTestCase
      */
     public function testRelinquishAgedLocks($arguments, $locksRemoved)
     {
-        // loads fixtures
-        $this->setupRelinquishAgedLocks();
+        $this->setupFixtures([
+            ['a', '1', 'him', '20 minutes ago', null, null],
+            ['b', '2', 'her', '15 minutes ago', null, null],
+            ['a', '3', 'she', '10 minutes ago', null, null],
+            ['b', '4', 'him', '5 minutes ago', null, null],
+            ['a', '5', 'her', '0 minutes ago', null, null],
+            ['b', '6', 'she', '20 minutes ago', 60 * 10, null],
+            ['a', '7', 'him', '15 minutes ago', 60 * 10, null],
+            ['b', '8', 'her', '10 minutes ago', 60 * 10, null],
+            ['a', '9', 'she', '5 minutes ago', 60 * 10, null],
+            ['b', '10', 'him', '0 minutes ago', 60 * 10, null],
+        ]);
 
         call_user_func_array([$this->objectLockManager, 'relinquishLocks'], $arguments);
 

@@ -2,8 +2,6 @@
 
 namespace HF\POOL\Entity;
 
-use \DateTime;
-
 /**
  * RecordLock
  */
@@ -25,7 +23,7 @@ class RecordLock
     private $user_ident;
 
     /**
-     * @var DateTime
+     * @var integer
      */
     private $lock_obtained;
 
@@ -90,7 +88,7 @@ class RecordLock
     }
 
     /**
-     * @return DateTime
+     * @return integer
      */
     public function getLockObtained()
     {
@@ -98,7 +96,7 @@ class RecordLock
     }
 
     /**
-     * @param DateTime $lock_obtained
+     * @param integer $lock_obtained
      */
     public function setLockObtained($lock_obtained)
     {

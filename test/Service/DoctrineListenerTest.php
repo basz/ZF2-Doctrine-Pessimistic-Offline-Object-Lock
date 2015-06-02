@@ -20,7 +20,7 @@ class DoctrineListenerTest extends BaseTestCase
         $auth->getStorage()->write('you');
 
         $this->getObjectManager()->persist($entity);
-        $this->getObjectManager()->flush();
+        $this->getObjectManager()->flush($entity);
 
         // create a lock
         $this->objectLockManager->acquireLock(get_class($entity), 'a:b', 'me');
@@ -30,7 +30,7 @@ class DoctrineListenerTest extends BaseTestCase
         $this->getObjectManager()->persist($entity);
 
         $this->setExpectedException(LockedException::class);
-        $this->getObjectManager()->flush();
+        $this->getObjectManager()->flush($entity);
 
     }
 }

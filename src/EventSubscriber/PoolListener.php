@@ -109,8 +109,8 @@ class PoolListener implements EventSubscriber
         $objectKey        = implode(":", array_values($identifierValues));
 
         // will return a user ident if a valid lock exists
-        if ($userIdent = $this->objectLockManager->getUserIdent($objectType, $objectKey)) {
-            if ($userIdent !== $this->authenticationService->getIdentity()) {
+        if ($lockInfo = $this->objectLockManager->getLockInfo($objectType, $objectKey)) {
+            if ($lockInfo['user_ident'] !== $this->authenticationService->getIdentity()) {
                 throw new LockedException(sprintf(LockedException::MESSAGE_LOCKED, $objectType, $objectKey));
             }
         }

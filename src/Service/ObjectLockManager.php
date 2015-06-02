@@ -57,7 +57,7 @@ class ObjectLockManager
                 [Type::STRING, Type::STRING]
             );
 
-            $now = new \DateTime('now');
+            $now = time();
 
             if ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
                 if ($row['user_ident'] == $userIdent) {
@@ -74,14 +74,10 @@ class ObjectLockManager
                             $objectKey,
                             $userIdent
                         ],
-                        [Type::DATETIME, Type::INTEGER, Type::STRING, Type::STRING, Type::STRING, Type::STRING]
+                        [Type::INTEGER, Type::INTEGER, Type::STRING, Type::STRING, Type::STRING, Type::STRING]
                     );
 
-                    if ($rows == 1) {
-                        $result = true;
-                    } else {
-                        throw new Exception\RuntimeException("Race-condition detected while updating item in queue.");
-                    }
+                    $result = true;
                 } else {
                     $result = false;
                 }
@@ -92,7 +88,7 @@ class ObjectLockManager
                 $rows = $this->connection->executeUpdate(
                     $insert,
                     [$objectType, $objectKey, $userIdent, $now, $ttl, $reason],
-                    [Type::STRING, Type::STRING, Type::STRING, Type::DATETIME, Type::INTEGER, Type::STRING]
+                    [Type::STRING, Type::STRING, Type::STRING, Type::INTEGER, Type::INTEGER, Type::STRING]
                 );
 
                 $result = ($rows == 1);
@@ -118,13 +114,30 @@ class ObjectLockManager
     public function relinquishLock($objectType, $objectKey)
     {
         try {
-            $delete = 'DELETE FROM `recordlock` WHERE object_type = ? AND object_key = ?';
+            $sql = <<<EOT
+DELETE FROM `recordlock`
+WHERE (object_type = :objectType AND object_key = :objectKey)
+AND ((
+     lock_ttl IS NULL AND (lock_obtained + :ttl > :now)
+    ) OR (
+     lock_ttl IS NOT NULL AND (lock_obtained + lock_ttl) > :now
+    ))
+EOT;
 
-            $deleted = $this->connection->executeUpdate(
-                $delete,
-                [$objectType, $objectKey],
-                [Type::STRING, Type::STRING]
-            );
+            $values = [
+                'now'        => time(),
+                'ttl'        => $this->options->getTtl(),
+                'objectType' => $objectType,
+                'objectKey'  => $objectKey
+            ];
+            $types  = [
+                'now'        => Type::INTEGER,
+                'ttl'        => Type::INTEGER,
+                'objectType' => Type::STRING,
+                'objectKey'  => Type::STRING
+            ];
+
+            $deleted = $this->connection->executeUpdate($sql, $values, $types);
         } catch (DBALException $e) {
             throw new Exception\RuntimeException($e->getMessage(), $e->getCode(), $e);
         }
@@ -165,36 +178,35 @@ class ObjectLockManager
      */
     public function relinquishLocks($ttl = null, $objectType = null, $userIdent = null)
     {
-        $sql    = <<<EOT
+        $sql = <<<EOT
 FROM `recordlock`
 WHERE
     ((
-     lock_ttl IS NULL AND CAST(STRFTIME('%s', lock_obtained) AS INTEGER) <= :max_age_ts
+     lock_ttl IS NULL AND (lock_obtained + :ttl < :now)
     ) OR (
-     lock_ttl IS NOT NULL AND CAST(STRFTIME('%s', lock_obtained) AS INTEGER) <= MAX(:max_age_ts, (:now_ts - lock_ttl))
+     lock_ttl IS NOT NULL AND (lock_obtained + lock_ttl) < :now
     ))
 EOT;
-        $now_ts = time();
 
-        if ($ttl === null) {
-            $max_age_ts = $now_ts - $this->options->getTtl();
-        } else {
-            $max_age_ts = $now_ts - $ttl;
-        }
-
-        $values = ['max_age_ts' => $max_age_ts, 'now_ts' => $now_ts];
-        $types  = ['max_age_ts' => Type::INTEGER, 'now_ts' => Type::INTEGER];
+        $values = [
+            'now' => time(),
+            'ttl' => $ttl ?: $this->options->getTtl(),
+        ];
+        $types  = [
+            'now' => Type::INTEGER,
+            'ttl' => Type::INTEGER,
+        ];
 
         if ($objectType !== null) {
-            $sql .= ' AND object_type = :object_type';
-            $values['object_type'] = $objectType;
-            $types['object_type']  = Type::STRING;
+            $sql .= ' AND object_type = :objectType';
+            $values['objectType'] = $objectType;
+            $types['objectType']  = Type::STRING;
         }
 
         if ($userIdent !== null) {
-            $sql .= ' AND user_ident = :user_ident';
-            $values['user_ident'] = $userIdent;
-            $types['user_ident']  = Type::STRING;
+            $sql .= ' AND user_ident = :userIdent';
+            $values['userIdent'] = $userIdent;
+            $types['userIdent']  = Type::STRING;
         }
 
         try {
@@ -214,36 +226,35 @@ EOT;
      * @return string the userIdent or false when not found
      * @throws Exception\RuntimeException
      */
-    public function getUserIdent($objectType, $objectKey)
+    public function getLockInfo($objectType, $objectKey)
     {
         $sql = <<<EOT
 FROM `recordlock`
 WHERE
+    (object_type = :objectType AND object_key = :objectKey)
+    AND
     ((
-     lock_ttl IS NULL AND CAST(STRFTIME('%s', lock_obtained) AS INTEGER) > :max_age_ts
+     lock_ttl IS NULL AND (lock_obtained + :ttl >= :now)
     ) OR (
-     lock_ttl IS NOT NULL AND CAST(STRFTIME('%s', lock_obtained) AS INTEGER) > MAX(:max_age_ts, (:now_ts - lock_ttl))
+     lock_ttl IS NOT NULL AND (lock_obtained + lock_ttl) >= :now
     ))
 EOT;
 
-        $now_ts     = time();
-        $max_age_ts = $now_ts - $this->options->getTtl();
-
         $values = [
-            'max_age_ts'  => $max_age_ts,
-            'now_ts'      => $now_ts,
-            'object_type' => $objectType,
-            'object_key'  => $objectKey
+            'now'        => time(),
+            'ttl'        => $this->options->getTtl(),
+            'objectType' => $objectType,
+            'objectKey'  => $objectKey
         ];
         $types  = [
-            'max_age_ts'  => Type::INTEGER,
-            'now_ts'      => Type::INTEGER,
-            'object_type' => Type::STRING,
-            'object_key'  => Type::STRING
+            'now'        => Type::INTEGER,
+            'ttl'        => Type::INTEGER,
+            'objectType' => Type::STRING,
+            'objectKey'  => Type::STRING
         ];
 
         try {
-            $select = 'SELECT `user_ident` ' . $sql;
+            $select = 'SELECT `user_ident`, `lock_obtained`, `lock_ttl`, `reason` ' . $sql;
             $stmt   = $this->connection->executeQuery($select, $values, $types);
             $row    = $stmt->fetch(\PDO::FETCH_ASSOC);
         } catch (DBALException $e) {
@@ -251,7 +262,8 @@ EOT;
         }
 
         if ($row) {
-            return $row['user_ident'];
+            $valid = $row['lock_obtained'] - time() + ($row['lock_ttl'] ? $row['lock_ttl'] : $this->options->getTtl());
+            return ['user_ident' => $row['user_ident'], 'ttl' => $valid, 'reason' => $row['reason']];
         } else {
             return false;
         }

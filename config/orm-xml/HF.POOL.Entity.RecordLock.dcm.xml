@@ -4,8 +4,8 @@
     <id name="object_type" type="string" length="64"/>
     <id name="object_key" type="string" length="64"/>
     <field name="user_ident" type="string" length="64" nullable="false"/>
+    <field name="lock_obtained" type="integer" nullable="false"/>
     <field name="lock_ttl" type="integer" nullable="true"/>
-    <field name="lock_obtained" type="datetime" nullable="false"/>
     <field name="reason" type="string" length="256" nullable="true"/>
     <unique-constraints>
       <unique-constraint name="lockindex" columns="object_type,object_key,user_ident"/>
